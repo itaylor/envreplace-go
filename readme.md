@@ -53,6 +53,6 @@ This tool will exit with a non-zero exit code and prints a helpful message if an
 ## Building
 There's a very simple included makefile
 
-`make` build the executable
-`make test` build the executable and run the tests
-`make install` build the executable, run the tests, and copy the file to /usr/local/bin
+* `make` build the executable
+* `make test` build the executable and run the tests
+* `make install` build the executable, run the tests, and copy the file to /usr/local/bin
