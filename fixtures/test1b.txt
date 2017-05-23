@@ -1,0 +1,3 @@
+#FOO#
+The below are not variables per the regex from test1.json
+#foo #FOO # BAR# #BAR

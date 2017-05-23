@@ -1,0 +1,7 @@
+{
+  "variableRegex": "#([A-Z0-9_]+)#",
+  "files": {
+    "./test1a.txt": "../output/test1a.txt.out",
+    "./test1b.txt": "../output/test1b.txt.out"
+  }
+}
