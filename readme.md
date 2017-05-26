@@ -2,9 +2,9 @@
 
 A small, statically linkable cli utility written in GoLang that replaces strings in files with the value of env vars.
 
-The primary usage is for docker-izing existing applications that don't look at the environment for their configuration. For when you need something to write the info from docker's set env vars into pre-existing configuration.
+The primary usage is for dockerizing existing applications. It's useful when you have an application that is looking somewhere in the filesystem for its configuration, and you'd prefer to pass that configuration as an environment variable.
 
-It's roughly similar in functionality to [my node.js module with the same name](https://www.npmjs.com/package/envreplace), but since it can be statically linked, it's much better suited for use in a docker container.
+It's roughly similar in functionality to [my node.js module with the same name](https://www.npmjs.com/package/envreplace), but since it can be statically linked and precompiled with no dependencies, it's much better suited for use in a docker container where you might not want a whole node.js install.
 
 ### A simple example
 
