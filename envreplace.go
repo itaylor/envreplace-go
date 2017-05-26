@@ -15,60 +15,127 @@ import "path/filepath"
 
 func main() {
 
-  flag.Parse();
-  if len(flag.Args()) == 0 {
-    handleError("Usage: envreplace <configfile>")
-  }
-  var configFileName = flag.Args()[0];
+  var regex string
+  var verbose bool
+  var silent bool
+  var help bool
+  flag.StringVar(&regex, "regex", "", "Regular expression that parses variable name into capture group 1. Remember to quote and escape to pass it through your shell. If no value is provided the default is '#([A-Z0-9_]+)#'")
+  flag.BoolVar(&verbose, "verbose", false, "Prints info about each substitution made")
+  flag.BoolVar(&silent, "silent", false, "Skips printing count of files and substitutions made")
+  flag.BoolVar(&help, "help", false, "Prints help text")
+  flag.Parse()
 
-  configFileName, err := filepath.Abs(configFileName)
+  var argLen = len(flag.Args())
+  if argLen == 0 || argLen > 2 || help {
+    fmt.Println(`
+Envreplace
+  Replaces strings in files with their matching environment variable value.
+  https://github.com/itaylor/envreplace-go
+
+Usage:
+  envreplace <srcFile> <destFile>
+    Calls envreplace on <srcFile> and put the result into <destFile>
+
+  envreplace <configfile>
+    Call envreplace with configuration stored in json formated file <configfile>
+
+Flags:`)
+    flag.PrintDefaults()
+    os.Exit(1)
+  }
+
+  var config Config
+  if (argLen == 1) {
+    config = loadConfig(flag.Args()[0])
+  } else {
+    config = Config{}
+    config.Files = make(map[string]string)
+    config.Files[flag.Args()[0]] = flag.Args()[1]
+    config.BasePath = GetCwd();
+  }
+
+  if regex != "" {
+    config.VariableRegex = regex;
+  }
+  if config.VariableRegex == "" {
+    config.VariableRegex = "#([A-Z0-9_]+)#"
+  }
+  r := regexp.MustCompile(config.VariableRegex)
+
+  fileCount := 0
+  matchCount := 0
+
+  for src, dest := range config.Files {
+    var err interface{}
+    fileCount++
+    if verbose {
+      fmt.Println(fmt.Sprintf("Processing file passed in as '%v'", src))
+    }
+    if !filepath.IsAbs(src) {
+      src = filepath.Join(config.BasePath, src)
+      src, err = filepath.Abs(src)
+    }
+    if verbose {
+      fmt.Println(fmt.Sprintf("  Reading file '%v'", src))
+    }
+    if !filepath.IsAbs(dest) {
+      dest = filepath.Join(config.BasePath, dest)
+      dest, err = filepath.Abs(dest)
+    }
+    handleError(err)
+
+    srcData, err := ioutil.ReadFile(src)
+    handleError(err)
+    destData, replaceCount := doReplace(srcData, r, verbose, src)
+    err = ioutil.WriteFile(dest, destData, 0644)
+    if verbose {
+      fmt.Println(fmt.Sprintf("  Wrote %v replaced variables to destination '%v'", replaceCount, dest))
+    }
+    matchCount += replaceCount
+    handleError(err)
+  }
+  if !silent {
+    fmt.Println(fmt.Sprintf("Successfully processed %v files and made %v replacements", fileCount, matchCount))
+  }
+}
+
+func loadConfig (fileName string) Config {
+  configFileName, err := filepath.Abs(fileName)
   handleError(err)
   configFileDir := filepath.Dir(configFileName);
-  handleError(err)
   data, err := ioutil.ReadFile(configFileName)
   handleError(err)
   var config Config
   err = json.Unmarshal(data, &config)
   handleError(err)
-  r := regexp.MustCompile(config.VariableRegex)
-
-  for src, dest := range config.Files {
-
-    if !filepath.IsAbs(src) {
-      src = filepath.Join(configFileDir, src)
-      src, err = filepath.Abs(src)
-      handleError(err)
-    }
-    if !filepath.IsAbs(dest) {
-      dest = filepath.Join(configFileDir, dest)
-      dest, err = filepath.Abs(dest)
-      handleError(err)
-    }
-    handleError(err)
-    srcData, err := ioutil.ReadFile(src)
-    handleError(err)
-    destData := doReplace(srcData, r)
-    err = ioutil.WriteFile(dest, destData, 0644)
-    handleError(err)
+  if config.BasePath == "" {
+    config.BasePath = configFileDir
   }
+  return config;
 }
 
-func doReplace(data []byte, regex *regexp.Regexp) []byte {
+func doReplace(data []byte, regex *regexp.Regexp, verbose bool, fileName string) ([]byte, int) {
   str := string(data[:])
+  count := 0
   replaced := ReplaceAllGroupFunc(regex, str, func(groups []string) string {
     var varName = groups[1]
     var envVar, wasSet = os.LookupEnv(varName)
     if !wasSet {
-      handleError(fmt.Sprintf("The env var '%v' is not found in the environment.", varName))
+      handleError(fmt.Sprintf("Error: Env var '%v' found as '%v' in file '%v' is not set in the environment.", varName, groups[0], fileName))
+    }
+    count++
+    if verbose {
+      fmt.Println(fmt.Sprintf("  replaced '%v' with '%v'", groups[0], envVar))
     }
     return envVar
   })
-  return []byte(replaced)
+  return []byte(replaced), count
 }
 
 type Config struct {
-  VariableRegex string `json:"variableRegex,omitempty"`//= "${env\\.(.*?)}"
+  VariableRegex string `json:"variableRegex,omitempty"`
   Files map[string]string `json:"files"`
+  BasePath string `json:"basePath,omitempty"`
 }
 
 func handleError(err interface{}) {
@@ -77,6 +144,15 @@ func handleError(err interface{}) {
     os.Exit(1);
   }
 }
+
+func GetCwd() string {
+  dir, err := os.Getwd()
+  if err != nil {
+    panic(err)
+  }
+  return dir
+}
+
 
 func ReplaceAllGroupFunc(re *regexp.Regexp, str string, repl func([]string) string) string {
   result := ""

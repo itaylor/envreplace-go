@@ -12,32 +12,41 @@ If you have a config file `/usr/src/conf/myconfig.properties`
 ```
 my.property.foobar=#FOOBAR#
 ```
-That you want to end up in `/usr/local/lib/tomcat/conf` with its value `#FOOBAR#` taken from the environment variable `FOOBAR`
+That you want to end up in `/usr/local/tomcat/conf` with its value `#FOOBAR#` taken from the environment variable `FOOBAR`
 
-You'd write an envreplace descriptor at `/usr/src/conf/envreplace.json`
+Then you'd call `envreplace` like this:
+```bash
+FOOBAR="Some value"
+envreplace /usr/src/conf/myconfig.properties /usr/local/tomcat/conf/myconfig.properties
+```
+And you'd end up with the `/usr/local/tomcat/conf/myconfig.properties`
+```
+my.property.foobar=Some value
+```
+
+### Multiple files at once
+
+If you have two files in the `/usr/src/conf/` folder that you want replaced, you can do multiple at once by creating an envreplace configuration json file.
+
+The `files` entry in the JSON object a map of source files to destination files to be processed by `envreplace`.
+You could create a file `/usr/src/conf/envreplace.json`
 ```json
 {
-  "variableRegex": "#([A-Z0-9_]+)#",
   "files": {
-    "/usr/src/conf/myconfig.properties": "/usr/local/lib/tomcat/conf/myconfig.properties",
+    "./myconfig.properties": "/usr/local/tomcat/conf/myconfig.properties",
+    "./somethingelse.file": "/usr/local/tomcat/conf/whatever.name.file"
   }
 }
 ```
 
 Then you'd run:
 ```bash
-FOOBAR="This is foobar value"
+FOOBAR="Some value"
 envreplace /usr/src/conf/envreplace.json
 ```
+And both the files declared would have their `#FOOBAR#` replaced with `Some value`
 
-And you'd end up with `/usr/local/lib/tomcat/conf/myconfig.properties`
-```
-my.property.foobar=This is foobar value
-```
-
-You'll probably want to wire this up so that it runs as part of your docker entrypoint, so that every time your container starts, you get the env vars copied into the config.
-
-## Configuration Options
+## Configuration file options
 The .json file that contains the config has two keys:
 * `variableRegex` a string version of a RegEx.  It must contain a single capture group that will be used to pull out the environment variable name.
 * `files` a json object.  This is used as a key/value map of file src to file destination.
@@ -47,7 +56,28 @@ The .json file that contains the config has two keys:
 }
 ```
 
-## Fails on missing env var
+File paths listed in the files map are relative to the location of the configuration file.
+
+## CLI options:
+
+### Usage:
+  * envreplace <srcFile> <destFile>
+      Calls envreplace on <srcFile> and put the result into <destFile>
+
+  * envreplace <configfile>
+      Call envreplace with configuration stored in json formated file <configfile>
+
+### Flags:
+  * -help
+      Prints help text
+  * -regex string
+      Regular expression that parses variable name into capture group 1. Remember to quote and escape to pass it through your shell. If no value is provided the default is '#([A-Z0-9_]+)#'
+  * -silent
+      Skips printing count of files and substitutions made
+  * -verbose
+      Prints info about each substitution made
+
+## Fails on missing env vars
 This tool will exit with a non-zero exit code and prints a helpful message if any of the files specified in the files option have match the variableRegex but do not have a matching env var.  This prevents you from accidentally using config that did not get substituted properly.
 
 ## Building
