@@ -50,7 +50,8 @@ And both the files declared would have their `#FOOBAR#` replaced with `Some valu
 The .json file that contains the config has two keys:
 * `variableRegex` a string version of a RegEx.  It must contain a single capture group that will be used to pull out the environment variable name.
 * `files` a json object.  This is used as a key/value map of file src to file destination.
-``` files: {
+```
+files: {
   "/path/to/source.file": "/path/to/destination.file",
   "/path/to/some/other/source.file": "/another/destination.file"
 }
