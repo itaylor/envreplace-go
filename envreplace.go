@@ -49,7 +49,7 @@ Flags:`)
     config = loadConfig(flag.Args()[0])
   } else {
     config = Config{}
-    config.Files = make(map[string]string)
+    config.Files = make(map[string]interface{})
     config.Files[flag.Args()[0]] = flag.Args()[1]
     config.BasePath = GetCwd();
   }
@@ -66,6 +66,9 @@ Flags:`)
   matchCount := 0
 
   for src, dest := range config.Files {
+
+    dests := CoerceToDests(dest)
+
     var err interface{}
     fileCount++
     if verbose {
@@ -78,24 +81,30 @@ Flags:`)
     if verbose {
       fmt.Println(fmt.Sprintf("  Reading file '%v'", src))
     }
-    if !filepath.IsAbs(dest) {
-      dest = filepath.Join(config.BasePath, dest)
-      dest, err = filepath.Abs(dest)
-    }
-    handleError(err)
 
     srcData, err := ioutil.ReadFile(src)
     handleError(err)
     destData, replaceCount := doReplace(srcData, r, verbose, src)
-    err = ioutil.WriteFile(dest, destData, 0644)
-    if verbose {
-      fmt.Println(fmt.Sprintf("  Wrote %v replaced variables to destination '%v'", replaceCount, dest))
-    }
+    WriteOutput(destData, dests, config.BasePath, replaceCount, verbose)
     matchCount += replaceCount
-    handleError(err)
   }
   if !silent {
     fmt.Println(fmt.Sprintf("Successfully processed %v files and made %v replacements", fileCount, matchCount))
+  }
+}
+
+func WriteOutput(destData []byte, dests []string, basePath string, replaceCount int, verbose bool) {
+  var err interface{}
+  for _, d := range dests {
+    if !filepath.IsAbs(d) {
+      d = filepath.Join(basePath, d)
+      d, err = filepath.Abs(d)
+    }
+    err = ioutil.WriteFile(d, destData, 0644)
+    if verbose {
+      fmt.Println(fmt.Sprintf("  Wrote %v replaced variables to destination '%v'", replaceCount, d))
+    }
+    handleError(err)
   }
 }
 
@@ -112,6 +121,21 @@ func loadConfig (fileName string) Config {
     config.BasePath = configFileDir
   }
   return config;
+}
+
+func CoerceToDests(dest interface{}) []string {
+  var dests []string;
+  switch dest := dest.(type) {
+  case []interface{}:
+    for _, d := range dest {
+      dests = append(dests, fmt.Sprintf("%v", d))
+    }
+    case string:
+      dests = append(dests, dest)
+    default:
+      handleError(fmt.Sprintf("Unexpected type '%T' of value '%v'", dest, dest))
+  }
+  return dests;
 }
 
 func doReplace(data []byte, regex *regexp.Regexp, verbose bool, fileName string) ([]byte, int) {
@@ -134,7 +158,7 @@ func doReplace(data []byte, regex *regexp.Regexp, verbose bool, fileName string)
 
 type Config struct {
   VariableRegex string `json:"variableRegex,omitempty"`
-  Files map[string]string `json:"files"`
+  Files map[string]interface{} `json:"files"`
   BasePath string `json:"basePath,omitempty"`
 }
 

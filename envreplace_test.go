@@ -143,6 +143,24 @@ func TestNormalOutput(t *testing.T) {
   })
 }
 
+func TestConfigFilesWithArrays(t *testing.T) {
+  t.Run("Test array in file config has multiple outputs for one input", func(t *testing.T) {
+    var cliArgs []string = []string {
+      "./fixtures/test5.json",
+    }
+    cmd := getCommand(loadTestEnv("test5"), cliArgs)
+    output, err := cmd.CombinedOutput()
+    if err != nil {
+      t.Fatal(err, string(output[:]))
+    }
+    compare(string(output[:]), "Successfully processed 1 files and made 2 replacements\n", t)
+    actual5a := getOutput("test5a")
+    expected5 := getExpected("test5")
+    compare(actual5a, expected5, t)
+    actual5b := getOutput("test5b")
+    compare(actual5b, expected5, t)
+  })
+}
 
 func loadTestEnv(name string) []string {
   data, err := ioutil.ReadFile(path.Join("./", "fixtures", name + ".env.json"))

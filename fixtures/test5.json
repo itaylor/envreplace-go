@@ -1,0 +1,5 @@
+{
+  "files": {
+    "./test5.txt": ["../output/test5a.txt.out", "../output/test5b.txt.out"]
+  }
+}
