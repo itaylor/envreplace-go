@@ -1,4 +1,4 @@
-FROM golang:1.8-alpine
+FROM golang:1.17.3-alpine
 
 ADD ./ /usr/src/envreplace
 WORKDIR /usr/src/envreplace
